@@ -20,17 +20,26 @@
 
 html {
   scroll-behavior: smooth;
+  /* Belt and braces against horizontal scroll on mobile: iOS Safari resolves
+     100vw and fixed-position children against the layout viewport, so a single
+     wide descendant can shift the whole page and expose a gutter. */
+  overflow-x: hidden;
+  width: 100%;
 }
 
 body {
   font-family: 'Montserrat', sans-serif;
   font-weight: 400;
   color: var(--charcoal);
-  background: var(--white);
+  background: var(--navy);
   line-height: 1.7;
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
 }
 
 .font-cormorant {
@@ -49,6 +58,12 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 5%;
+  /* The brand lockup does not wrap, so without an explicit cap the bar can
+     grow past the viewport; percentage padding then resolves against that
+     inflated width and the whole document becomes horizontally scrollable.
+     No overflow clipping here — the mobile dropdown is a child of this bar but
+     renders below it, so any overflow rule hides the menu entirely. */
+  max-width: 100vw;
   backdrop-filter: blur(6px);
   border-bottom: 1px solid rgba(197,160,89,0.3);
   transition: height 0.3s, background 0.3s, box-shadow 0.3s;
@@ -59,6 +74,9 @@ body {
   align-items: center;
   gap: 14px;
   text-decoration: none;
+  /* Never let the wordmark wrap or squeeze the links */
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Desktop: horizontal row */
@@ -67,6 +85,35 @@ body {
   align-items: center;
   gap: 36px;
   list-style: none;
+  /* Absorbs the leftover width and keeps items on one line as it narrows */
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.nav-links li { flex-shrink: 0; }
+
+/* The bar carries six items on the IT side (four links + CTA + vertical
+   switcher). Below ~1150px that no longer fits at full spacing, so tighten
+   progressively rather than letting the row wrap or clip. */
+@media (min-width: 901px) and (max-width: 1150px) {
+  .nav-links { gap: 20px; }
+  .nav-link { font-size: 10px; letter-spacing: 1.2px; }
+  .nav-cta { padding: 8px 14px; font-size: 10px; letter-spacing: 1.2px; }
+  .nav-switch { padding: 7px 10px; font-size: 9px; letter-spacing: 1px; }
+  .site-nav { padding: 0 3%; }
+}
+
+@media (min-width: 901px) and (max-width: 1010px) {
+  /* Tightest desktop band: the switcher keeps a meaningful word rather than a
+     bare arrow, which reads as nothing on its own. */
+  .nav-links { gap: 14px; }
+  .nav-switch { padding: 7px 9px; }
+  /* A truncated word ("CORPO…") reads worse than an explicit short label, so
+     swap the full name for the vertical's short form. */
+  .nav-switch .nav-switch-label { display: none; }
+  .nav-switch .nav-switch-short { display: inline !important; }
+  .nav-link { font-size: 9px; letter-spacing: 1px; }
+  .nav-cta { padding: 8px 11px; font-size: 9px; letter-spacing: 1px; }
 }
 
 .nav-link {
@@ -93,6 +140,30 @@ body {
   transition: background 0.2s;
 }
 .nav-cta:hover { background: var(--gold-light); }
+
+/* Vertical switcher — jumps between Corporate Advisory and Information Technology */
+.nav-switch {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(197,160,89,0.4);
+  color: var(--gold);
+  padding: 7px 14px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 2px;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+.nav-switch:hover {
+  background: rgba(197,160,89,0.12);
+  border-color: var(--gold);
+}
+
+/* Compact label, revealed only in the tight 901–1010px desktop band below */
+.nav-switch .nav-switch-short { display: none; }
 
 /* Hamburger — hidden on desktop */
 .nav-toggle {
@@ -124,6 +195,10 @@ body {
     top: var(--nav-top, 68px);
     left: 0;
     right: 0;
+    /* The panel is position:fixed and so does not inherit .site-nav's stacking
+       context; without its own z-index the hero's z-index:10 wrapper paints
+       over it and swallows every tap. */
+    z-index: 99;
     flex-direction: column;
     align-items: stretch;
     gap: 0;
@@ -133,8 +208,18 @@ body {
     transform: translateY(-150%);
     transition: transform 0.35s ease;
     box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+    /* While closed (and mid-slide) the panel must not receive taps. The links
+       sweep through the hamburger's position as it animates, and a touch
+       device's synthesized click arrives ~300ms after touchstart — landing on
+       whichever link is passing under the finger and navigating unexpectedly.
+       Only pointer-events is gated here: `visibility` would be inherited by the
+       links and hide the panel outright. */
+    pointer-events: none;
   }
   .nav-links.open { transform: translateY(0); }
+  /* Taps enabled only once the slide has finished, so the panel cannot
+     intercept the same tap that opened it. */
+  .nav-links.open.nav-ready { pointer-events: auto; }
 
   .nav-links li { width: 100%; }
 
@@ -146,6 +231,21 @@ body {
 
   .nav-cta {
     margin-top: 12px;
+    text-align: center;
+  }
+
+  .nav-switch {
+    margin-top: 10px;
+    justify-content: center;
+    width: 100%;
+    /* Full label always shown in the dropdown, where there is room */
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    padding: 12px 14px;
+    /* The IT label ("Information Technology") is too long to hold on one line
+       at phone widths; nowrap here forces the fixed nav panel past the viewport
+       and makes the whole document horizontally scrollable. */
+    white-space: normal;
     text-align: center;
   }
 }
@@ -395,4 +495,427 @@ body {
     animation: none !important;
   }
   * { transition: none !important; }
+}
+
+/* ─────────────────────────  VERTICAL CHOOSER  ───────────────────────── */
+
+.vc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 5%;
+  overflow-y: auto;
+  /* Clips the oversized ambient glow, which is wider than a phone viewport
+     and would otherwise extend the document scroll width. */
+  overflow-x: hidden;
+  background: var(--navy);
+  animation: vcOverlayIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vcOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Exit: the whole stage recedes and dissolves once a card is picked */
+.vc-overlay.vc-leaving {
+  animation: vcOverlayOut 0.72s cubic-bezier(0.65, 0, 0.35, 1) both;
+  pointer-events: none;
+}
+
+@keyframes vcOverlayOut {
+  0%   { opacity: 1; }
+  55%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Ambient gold glow — drifts continuously behind the cards */
+.vc-glow {
+  position: absolute;
+  top: -180px;
+  right: -120px;
+  width: 720px;
+  height: 720px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(197,160,89,0.10) 0%, transparent 70%);
+  animation: vcGlowDrift 14s ease-in-out infinite alternate;
+}
+
+@keyframes vcGlowDrift {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+  to   { transform: translate3d(-90px, 70px, 0) scale(1.18); opacity: 1; }
+}
+
+.vc-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1000px;
+  margin: auto;
+  text-align: center;
+  transition: transform 0.72s cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* Stage pushes forward as it dissolves — reads as entering the practice */
+.vc-leaving .vc-inner { transform: scale(1.06); }
+
+/* ── Brand lockup ── */
+.vc-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  text-align: left;
+  animation: vcRiseIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.vc-brand svg {
+  animation: vcMarkIn 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vcMarkIn {
+  0%   { opacity: 0; transform: translateY(10px) rotate(-8deg) scale(0.82); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
+.vc-wordmark {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--white);
+  animation: vcTrack 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Letter-spacing settles inward — a small piece of typographic theatre */
+@keyframes vcTrack {
+  from { opacity: 0; letter-spacing: 13px; }
+  to   { opacity: 1; letter-spacing: 3px; }
+}
+
+@keyframes vcTrackSm {
+  from { opacity: 0; letter-spacing: 6px; }
+  to   { opacity: 1; letter-spacing: 2px; }
+}
+
+.vc-tagline {
+  font-size: 10px;
+  letter-spacing: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--gold);
+  animation: vcRiseIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+.vc-prompt {
+  font-size: 10px;
+  letter-spacing: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 44px;
+  animation: vcRiseIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+}
+
+@keyframes vcRiseIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.vc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 22px;
+  text-align: left;
+  perspective: 1400px;
+}
+
+/* ── Cards ── */
+.vc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 38px 34px 30px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(197,160,89,0.22);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  /* `backwards` (not `both`): the entrance holds its start state during the
+     stagger delay but does NOT retain its end state afterwards. A forward-
+     filling animation outranks :hover in the cascade, which would silently
+     kill the lift and dim interactions once the entrance finished. */
+  opacity: 1;
+  animation: vcCardIn 1s cubic-bezier(0.16, 1, 0.3, 1) var(--vc-delay, 0ms) backwards;
+  transition: background 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.5s ease,
+              filter 0.5s ease;
+}
+
+/* Cards arrive with a slight 3D tilt, settling flat */
+@keyframes vcCardIn {
+  0%   { opacity: 0; transform: translateY(46px) rotateX(12deg) scale(0.94); }
+  100% { opacity: 1; transform: none; }
+}
+
+.vc-card:hover,
+.vc-card:focus-visible {
+  background: rgba(197,160,89,0.07);
+  border-color: var(--gold);
+  transform: translateY(-8px) scale(1.015);
+  box-shadow: 0 26px 60px -18px rgba(0,0,0,0.65),
+              0 0 0 1px rgba(197,160,89,0.28);
+  outline: none;
+}
+
+/* The unhovered card yields focus to its sibling */
+.vc-card[data-dimmed] {
+  opacity: 0.5;
+  filter: saturate(0.65);
+  transform: scale(0.985);
+}
+
+/* Sweeping highlight that crosses the card on hover */
+.vc-sheen {
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(197,160,89,0.13) 50%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+  opacity: 0;
+}
+.vc-card:hover .vc-sheen,
+.vc-card:focus-visible .vc-sheen {
+  animation: vcSheen 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vcSheen {
+  0%   { left: -60%; opacity: 0; }
+  35%  { opacity: 1; }
+  100% { left: 130%; opacity: 0; }
+}
+
+/* ── Card internals ── */
+.vc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(197,160,89,0.35);
+  border-radius: 50%;
+  color: var(--gold);
+  transition: background 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.45s, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vc-icon svg {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vc-card:hover .vc-icon,
+.vc-card:focus-visible .vc-icon {
+  background: rgba(197,160,89,0.14);
+  border-color: var(--gold);
+  transform: translateY(-3px);
+}
+.vc-card:hover .vc-icon svg { transform: scale(1.12) rotate(-6deg); }
+
+.vc-card-title {
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--white);
+  margin-bottom: 6px;
+  transition: color 0.35s, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vc-card:hover .vc-card-title { transform: translateX(3px); }
+
+.vc-card-sub {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+
+.vc-card-desc {
+  font-size: 13px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 20px;
+  transition: color 0.35s;
+}
+.vc-card:hover .vc-card-desc { color: rgba(255,255,255,0.75); }
+
+.vc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 24px;
+}
+
+.vc-tag {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 2px;
+  color: rgba(255,255,255,0.65);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(197,160,89,0.16);
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s, color 0.4s, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--vc-tag-delay, 0ms);
+}
+/* Tags light up in sequence, left to right */
+.vc-card:hover .vc-tag,
+.vc-card:focus-visible .vc-tag {
+  background: rgba(197,160,89,0.12);
+  border-color: rgba(197,160,89,0.4);
+  color: rgba(255,255,255,0.9);
+  transform: translateY(-2px);
+}
+
+.vc-enter {
+  margin-top: auto;
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.vc-arrow {
+  display: inline-block;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vc-card:hover .vc-arrow,
+.vc-card:focus-visible .vc-arrow { transform: translateX(7px); }
+
+.vc-foot {
+  margin-top: 40px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  animation: vcRiseIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) 640ms both;
+}
+
+/* ── Selection: chosen card advances, sibling retreats ── */
+.vc-card[data-state='chosen'] {
+  animation: vcChosen 0.72s cubic-bezier(0.65, 0, 0.35, 1) both;
+  border-color: var(--gold);
+  z-index: 2;
+}
+
+@keyframes vcChosen {
+  0%   { transform: none; box-shadow: 0 0 0 0 rgba(197,160,89,0.5); }
+  30%  { transform: scale(0.975); box-shadow: 0 0 0 6px rgba(197,160,89,0.14); }
+  100% { transform: scale(1.9); opacity: 0; box-shadow: 0 0 0 24px rgba(197,160,89,0); }
+}
+
+.vc-card[data-state='dismissed'] {
+  animation: vcDismissed 0.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes vcDismissed {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(26px) scale(0.9); }
+}
+
+/* Supporting copy clears out ahead of the cards */
+.vc-leaving .vc-brand,
+.vc-leaving .vc-prompt,
+.vc-leaving .vc-foot {
+  animation: vcFadeOut 0.34s ease both;
+}
+
+@keyframes vcFadeOut {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(-12px); }
+}
+
+@media (max-width: 600px) {
+  .vc-overlay { padding: 32px 5%; align-items: flex-start; }
+  .vc-card { padding: 30px 26px 26px; }
+  .vc-card-title { font-size: 23px; }
+  .vc-prompt { margin-bottom: 32px; }
+
+  /* Scale the glow to the viewport so it stays ambient rather than clipped */
+  .vc-glow {
+    top: -120px;
+    right: -140px;
+    width: 420px;
+    height: 420px;
+  }
+
+  /* The brand lockup wraps rather than forcing a 308px minimum line */
+  .vc-brand { gap: 12px; }
+  .vc-wordmark {
+    font-size: 24px;
+    letter-spacing: 2px;
+    /* Narrower start than the desktop 13px, which would overflow a 320px screen
+       mid-animation and momentarily reintroduce the horizontal scroll. */
+    animation-name: vcTrackSm;
+  }
+  .vc-tagline { font-size: 9px; letter-spacing: 2px; }
+  .vc-brand svg { width: 42px; height: 52px; }
+  /* Scaling a full-bleed card off-screen is jarring on small viewports */
+  .vc-card[data-state='chosen'] {
+    animation-name: vcChosenSm;
+  }
+}
+
+@keyframes vcChosenSm {
+  0%   { transform: none; box-shadow: 0 0 0 0 rgba(197,160,89,0.5); }
+  30%  { transform: scale(0.97); box-shadow: 0 0 0 5px rgba(197,160,89,0.14); }
+  100% { transform: scale(1.35); opacity: 0; box-shadow: 0 0 0 18px rgba(197,160,89,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-overlay,
+  .vc-glow,
+  .vc-brand,
+  .vc-brand svg,
+  .vc-wordmark,
+  .vc-tagline,
+  .vc-prompt,
+  .vc-card,
+  .vc-foot,
+  .vc-card[data-state='chosen'],
+  .vc-card[data-state='dismissed'],
+  .vc-leaving .vc-brand,
+  .vc-leaving .vc-prompt,
+  .vc-leaving .vc-foot {
+    animation: none !important;
+    opacity: 1;
+    transform: none !important;
+  }
+  .vc-overlay.vc-leaving { opacity: 0; }
+  .vc-card[data-state='chosen'],
+  .vc-card[data-state='dismissed'] { opacity: 0; }
+  .vc-sheen { display: none; }
+  .vc-card[data-dimmed] { opacity: 1; filter: none; }
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { NAV_LINKS } from '../../constants'
+import { IT_NAV_LINKS } from '../../constants/it'
+import { useIsIT } from '../../context/VerticalContext'
 
 const LogoV = () => (
   <svg style={{ width: '36px', height: '44px', flexShrink: 0 }} viewBox="0 0 88 108" xmlns="http://www.w3.org/2000/svg">
@@ -12,9 +14,16 @@ const LogoV = () => (
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  /* Gates pointer events on the mobile panel until its slide-in has finished —
+     see .nav-links.nav-ready in index.css. */
+  const [menuReady, setMenuReady] = useState(false)
   const [activeSection, setActiveSection] = useState('')
   const { pathname } = useLocation()
-  const onHome = pathname === '/'
+  const isIT = useIsIT()
+  const home = isIT ? '/it' : '/'
+  const links = isIT ? IT_NAV_LINKS : NAV_LINKS
+  const servicesPath = isIT ? '/it/services' : '/services'
+  const onHome = pathname === home
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -25,7 +34,9 @@ const Navbar = () => {
 
   useEffect(() => {
     if (!onHome) return
-    const sections = ['about', 'services', 'credentials', 'industries', 'contact']
+    const sections = (isIT
+      ? ['about', 'services', 'technology', 'industries', 'contact']
+      : ['about', 'services', 'credentials', 'industries', 'contact'])
       .map(id => document.getElementById(id))
       .filter(Boolean)
 
@@ -40,11 +51,22 @@ const Navbar = () => {
     )
     sections.forEach(s => io.observe(s))
     return () => io.disconnect()
-  }, [onHome])
+  }, [onHome, isIT])
+
+  /* Arm the panel only after the 350ms slide completes; disarm immediately on
+     close so a stale tap cannot reach it on the way out. */
+  useEffect(() => {
+    if (!menuOpen) {
+      setMenuReady(false)
+      return
+    }
+    const t = setTimeout(() => setMenuReady(true), 380)
+    return () => clearTimeout(t)
+  }, [menuOpen])
 
   const close = () => setMenuOpen(false)
   const isActive = href => {
-    if (href === '/services') return pathname === '/services'
+    if (href === servicesPath) return pathname === servicesPath
     return onHome && href.includes('#') && activeSection === href.split('#')[1]
   }
 
@@ -58,14 +80,14 @@ const Navbar = () => {
       }}
     >
       {/* Brand */}
-      <Link to="/" className="nav-brand" onClick={close}>
+      <Link to={home} className="nav-brand" onClick={close}>
         <LogoV />
         <div className="flex flex-col" style={{ lineHeight: 1.1 }}>
           <span className="font-cormorant" style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '2px', color: 'var(--white)' }}>
             VYOMNEXARA
           </span>
           <span className="uppercase" style={{ fontSize: '9px', letterSpacing: '3px', fontWeight: 500, color: 'var(--gold)' }}>
-            Consulting LLP
+            {isIT ? 'Information Technology' : 'Consulting LLP'}
           </span>
         </div>
       </Link>
@@ -82,10 +104,10 @@ const Navbar = () => {
 
       {/* Nav links — desktop row / mobile drop panel, controlled by CSS only */}
       <ul
-        className={`nav-links${menuOpen ? ' open' : ''}`}
+        className={`nav-links${menuOpen ? ' open' : ''}${menuReady ? ' nav-ready' : ''}`}
         style={{ '--nav-top': scrolled ? '60px' : '68px' }}
       >
-        {NAV_LINKS.map(link => (
+        {links.map(link => (
           <li key={link.href}>
             <Link
               to={link.href}
@@ -98,8 +120,23 @@ const Navbar = () => {
           </li>
         ))}
         <li>
-          <Link to="/#contact" onClick={close} className="nav-cta">
+          <Link to={`${home}#contact`} onClick={close} className="nav-cta">
             Engage Us
+          </Link>
+        </li>
+        <li>
+          <Link
+            to={isIT ? '/' : '/it'}
+            onClick={close}
+            className="nav-switch"
+            title={isIT ? 'Switch to Corporate Advisory' : 'Switch to Information Technology'}
+          >
+            <span className="nav-switch-label">
+              {isIT ? 'Corporate Advisory' : 'Information Technology'}
+            </span>
+            {/* Shown only in the tight 901–1010px band — see index.css */}
+            <span className="nav-switch-short">{isIT ? 'Advisory' : 'IT'}</span>
+            <span aria-hidden="true" style={{ marginLeft: '6px' }}>&#8646;</span>
           </Link>
         </li>
       </ul>

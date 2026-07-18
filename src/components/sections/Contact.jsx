@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { COMPANY } from '../../constants'
+import { useIsIT } from '../../context/VerticalContext'
 import SectionHeader from '../ui/SectionHeader'
 import Reveal from '../ui/Reveal'
 
@@ -67,6 +68,7 @@ const inputBase = {
 const labelStyle = { fontSize: '10px', letterSpacing: '2px', fontWeight: 600, color: 'var(--gold)', textTransform: 'uppercase' }
 
 const Contact = () => {
+  const isIT = useIsIT()
   const [form, setForm] = useState({ name: '', company: '', email: '', service: '', message: '' })
   const [errors, setErrors] = useState({})
   const [feedback, setFeedback] = useState(null)
@@ -112,7 +114,11 @@ const Contact = () => {
         <SectionHeader
           eyebrow="Get in Touch"
           title="Engage Vyomnexara"
-          subtitle="Whether you need ongoing retainer support, a Virtual Company Secretary, a project mandate, or a one-time advisory opinion, reach out and we will revert within one business day."
+          subtitle={
+            isIT
+              ? 'Whether you need a new build, a dedicated team, an audit of an existing system, or ongoing managed support, reach out and we will revert within one business day.'
+              : 'Whether you need ongoing retainer support, a Virtual Company Secretary, a project mandate, or a one-time advisory opinion, reach out and we will revert within one business day.'
+          }
           light
         />
 
@@ -124,7 +130,11 @@ const Contact = () => {
                 <label style={labelStyle}>{label}</label>
                 <input
                   type={type}
-                  placeholder={placeholder}
+                  placeholder={
+                    id === 'service' && isIT
+                      ? 'e.g. Web application, cloud migration, dashboards...'
+                      : placeholder
+                  }
                   value={form[id]}
                   onChange={set(id)}
                   style={{ ...inputBase, borderColor: borderFor(id) }}
@@ -172,7 +182,7 @@ const Contact = () => {
 
           {/* Details */}
           <Reveal variant="right" className="flex flex-col" style={{ gap: '28px' }}>
-            {CONTACT_DETAILS.map(({ label, value, icon }) => (
+            {CONTACT_DETAILS.filter(d => !(isIT && d.label === 'LinkedIn')).map(({ label, value, icon }) => (
               <div key={label} className="flex items-start" style={{ gap: '16px' }}>
                 <div
                   className="flex items-center justify-center shrink-0"
@@ -191,14 +201,16 @@ const Contact = () => {
               </div>
             ))}
 
-            <div style={{ marginTop: '8px', padding: '20px 22px', border: '1px solid rgba(197,160,89,0.2)', borderLeft: '3px solid var(--gold)', borderRadius: '3px' }}>
-              <div className="uppercase" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--gold)', fontWeight: 600, marginBottom: '8px' }}>
-                LLPIN
+            {!isIT && (
+              <div style={{ marginTop: '8px', padding: '20px 22px', border: '1px solid rgba(197,160,89,0.2)', borderLeft: '3px solid var(--gold)', borderRadius: '3px' }}>
+                <div className="uppercase" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--gold)', fontWeight: 600, marginBottom: '8px' }}>
+                  LLPIN
+                </div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
+                  To be assigned upon completion of incorporation with MCA.
+                </div>
               </div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
-                To be assigned upon completion of incorporation with MCA.
-              </div>
-            </div>
+            )}
           </Reveal>
         </div>
       </div>

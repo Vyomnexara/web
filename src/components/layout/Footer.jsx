@@ -1,4 +1,8 @@
+import { useIsIT } from '../../context/VerticalContext'
+
 const Footer = () => {
+  const isIT = useIsIT()
+
   return (
     <footer style={{ background: '#050e1f', padding: '32px 5%', borderTop: '1px solid rgba(197,160,89,0.15)' }}>
       <div
@@ -6,12 +10,15 @@ const Footer = () => {
         style={{ maxWidth: '1200px', margin: '0 auto', gap: '16px' }}
       >
         <div className="font-cormorant" style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '1px', color: 'var(--white)' }}>
-          VYOMNEXARA <span style={{ color: 'var(--gold)' }}>CONSULTING LLP</span>
+          VYOMNEXARA{' '}
+          <span style={{ color: 'var(--gold)' }}>
+            {isIT ? 'INFORMATION TECHNOLOGY' : 'CONSULTING LLP'}
+          </span>
         </div>
 
         <div className="text-center" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
-          &copy; 2026 Vyomnexara Consulting LLP. All rights reserved.<br />
-          Regulated by the Institute of Company Secretaries of India.
+          &copy; 2026 Vyomnexara {isIT ? 'Information Technology' : 'Consulting LLP'}. All rights reserved.<br />
+          {isIT ? 'Technology vertical of the Vyomnexara group.' : 'Regulated by the Institute of Company Secretaries of India.'}
         </div>
 
         <div className="text-right" style={{ fontSize: '10px', letterSpacing: '1px', color: 'rgba(255,255,255,0.3)' }}>
